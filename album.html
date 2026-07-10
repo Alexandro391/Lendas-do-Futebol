@@ -785,6 +785,16 @@
       padding:18px;
     }
     .modal.open{display:grid}
+    .quick-view-box{
+      width:min(420px,100%);
+      padding:16px;
+    }
+    .quick-view-box .detail-card{
+      border:0;
+      background:transparent;
+      box-shadow:none;
+      padding:0;
+    }
     .modal-box{
       width:min(760px,100%);
       max-height:92vh;
@@ -877,13 +887,7 @@
 
     @media (max-width:1180px){
       .layout{grid-template-columns:210px minmax(0,1fr)}
-      .detail{
-        grid-column:1/-1;
-        position:static;
-        max-height:none;
-        border-left:0;border-top:1px solid var(--line);
-      }
-      .detail-card{max-width:800px;margin:auto}
+      .detail{display:none}
     }
     @media (max-width:820px){
       .topbar{grid-template-columns:1fr 1fr}
@@ -961,6 +965,16 @@
         <div id="detailCard" class="detail-card"></div>
       </aside>
     </main>
+  </div>
+
+  <div id="quickViewModal" class="modal quick-view-modal" aria-hidden="true">
+    <div class="modal-box quick-view-box">
+      <div class="modal-head">
+        <h3>Figurinha</h3>
+        <button class="close-btn" id="closeQuickView" aria-label="Fechar">×</button>
+      </div>
+      <div id="quickViewBody" class="detail-card"></div>
+    </div>
   </div>
 
   <div id="modal" class="modal" aria-hidden="true">
@@ -1522,7 +1536,9 @@
       loginEmail: document.getElementById("loginEmail"),
       loginPassword: document.getElementById("loginPassword"),
       loginError: document.getElementById("loginError"),
-      loginSubmitBtn: document.getElementById("loginSubmitBtn")
+      loginSubmitBtn: document.getElementById("loginSubmitBtn"),
+      quickViewModal: document.getElementById("quickViewModal"),
+      quickViewBody: document.getElementById("quickViewBody")
     };
 
     function loadPlayers(){
@@ -1819,6 +1835,10 @@
         el.addEventListener("click", () => {
           selectedId = Number(el.dataset.id);
           render();
+          if(isMobileOrTablet()){
+            const p = players.find(x => x.id === selectedId);
+            if(p) openQuickView(p);
+          }
         });
       });
       document.getElementById("emptyAddBtn")?.addEventListener("click", openAddModal);
@@ -1883,12 +1903,12 @@
         </div>`;
     }
 
-    function renderDetail(p){
+    function renderDetail(p, container = els.detailCard){
       const mini = p.image
         ? `<img src="${p.image}" alt="${esc(p.name)}">`
         : `<div class="mini-placeholder">${esc(p.name)}</div>`;
 
-      els.detailCard.innerHTML = `
+      container.innerHTML = `
         <div class="detail-hero" style="--team:${esc(p.team)};--team2:${esc(p.team2)}">
           <div class="mini-sticker">${mini}</div>
           <div>
@@ -1940,18 +1960,43 @@
         </button>
       `;
 
-      els.detailCard.querySelectorAll(".tab-btn").forEach(btn => {
+      container.querySelectorAll(".tab-btn").forEach(btn => {
         btn.addEventListener("click", () => {
-          els.detailCard.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
-          els.detailCard.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+          container.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+          container.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
           btn.classList.add("active");
-          document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+          container.querySelector(`#tab-${btn.dataset.tab}`).classList.add("active");
         });
       });
 
-      document.getElementById("editSelected")?.addEventListener("click", () => openEditModal(p.id));
-      document.getElementById("deleteSelected")?.addEventListener("click", deleteSelected);
-      document.getElementById("openProfileBtn").addEventListener("click", () => openProfile(p.id));
+      container.querySelector("#editSelected")?.addEventListener("click", () => {
+        closeQuickView();
+        openEditModal(p.id);
+      });
+      container.querySelector("#deleteSelected")?.addEventListener("click", deleteSelected);
+      container.querySelector("#openProfileBtn").addEventListener("click", () => {
+        closeQuickView();
+        openProfile(p.id);
+      });
+    }
+
+    function isMobileOrTablet(){
+      return window.matchMedia("(max-width:1180px)").matches;
+    }
+
+    function openQuickView(p){
+      renderDetail(p, els.quickViewBody);
+      els.quickViewModal.classList.add("open");
+      els.quickViewModal.setAttribute("aria-hidden","false");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeQuickView(){
+      els.quickViewModal.classList.remove("open");
+      els.quickViewModal.setAttribute("aria-hidden","true");
+      if(!els.profilePage.classList.contains("open")){
+        document.body.style.overflow = "";
+      }
     }
 
     // ============ PERFIL COMPLETO DO JOGADOR ============
@@ -2483,6 +2528,12 @@
     els.searchInput.addEventListener("input", render);
     els.countryFilter.addEventListener("change", render);
     els.addBtn.addEventListener("click", openAddModal);
+
+    document.getElementById("closeQuickView").addEventListener("click", closeQuickView);
+    els.quickViewModal.addEventListener("click", e => { if(e.target === els.quickViewModal) closeQuickView(); });
+    document.addEventListener("keydown", e => {
+      if(e.key === "Escape" && els.quickViewModal.classList.contains("open")) closeQuickView();
+    });
 
     els.authBtn.addEventListener("click", async () => {
       if(!firebaseConfigured) return;
